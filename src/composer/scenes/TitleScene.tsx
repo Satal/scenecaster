@@ -56,6 +56,9 @@ export const TitleScene: React.FC<TitleSceneProps> = ({
   const isMinimal = variant === "minimal";
   const isChapter = variant === "chapter";
 
+  // Scale text relative to width (designed for 1920px baseline)
+  const s = Math.min(1920 / width, 1.5);
+
   return (
     <div
       style={{
@@ -68,22 +71,22 @@ export const TitleScene: React.FC<TitleSceneProps> = ({
         alignItems: "center",
         opacity,
         fontFamily: theme.fontFamily,
-        padding: 60,
+        padding: 60 * s,
       }}
     >
       {/* Logo (main and outro variants) */}
       {theme.logo && (variant === "main" || isOutro) && (
         <div
           style={{
-            marginBottom: 40,
+            marginBottom: 40 * s,
             opacity: headingSpring,
           }}
         >
           <Img
-            src={theme.logo}
+            src={staticFile(theme.logo)}
             style={{
-              maxHeight: 80,
-              maxWidth: 300,
+              maxHeight: 80 * s,
+              maxWidth: 300 * s,
               objectFit: "contain",
             }}
           />
@@ -94,12 +97,12 @@ export const TitleScene: React.FC<TitleSceneProps> = ({
       {isChapter && (
         <div
           style={{
-            fontSize: 16,
+            fontSize: 16 * s,
             fontWeight: 500,
             color: theme.primaryColor,
             textTransform: "uppercase",
-            letterSpacing: 3,
-            marginBottom: 16,
+            letterSpacing: 3 * s,
+            marginBottom: 16 * s,
             opacity: headingSpring,
           }}
         >
@@ -110,7 +113,7 @@ export const TitleScene: React.FC<TitleSceneProps> = ({
       {/* Heading */}
       <div
         style={{
-          fontSize: isMinimal ? 48 : isChapter ? 52 : 64,
+          fontSize: (isMinimal ? 48 : isChapter ? 52 : 64) * s,
           fontWeight: 700,
           color: theme.textColor,
           textAlign: "center",
@@ -126,11 +129,11 @@ export const TitleScene: React.FC<TitleSceneProps> = ({
       {!isMinimal && (
         <div
           style={{
-            width: interpolate(accentLineSpring, [0, 1], [0, 80]),
-            height: 4,
+            width: interpolate(accentLineSpring, [0, 1], [0, 80 * s]),
+            height: 4 * s,
             backgroundColor: theme.primaryColor,
-            marginTop: 24,
-            marginBottom: 24,
+            marginTop: 24 * s,
+            marginBottom: 24 * s,
             borderRadius: 2,
           }}
         />
@@ -140,13 +143,13 @@ export const TitleScene: React.FC<TitleSceneProps> = ({
       {subheading && (
         <div
           style={{
-            fontSize: isMinimal ? 24 : 28,
+            fontSize: (isMinimal ? 24 : 28) * s,
             fontWeight: 400,
             color: `${theme.textColor}cc`,
             textAlign: "center",
             opacity: subheadingSpring,
             transform: `translateY(${subheadingY}px)`,
-            maxWidth: "70%",
+            maxWidth: "80%",
             lineHeight: 1.5,
           }}
         >

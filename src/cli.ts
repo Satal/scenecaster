@@ -4,6 +4,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseScriptFile, validateScriptFile } from "./schema/parser.js";
 import { runPipeline } from "./pipeline/index.js";
+import { launchPreview } from "./preview.js";
 import { createLogger } from "./utils/logger.js";
 import { generateTemplate } from "./template.js";
 
@@ -36,7 +37,10 @@ program
   .argument("<script>", "Path to the YAML script file")
   .option("-o, --output <dir>", "Output directory", "./output")
   .option("--variant <id>", "Only render a specific variant")
+  .option("--only <ids...>", "Only render specific scene IDs")
   .option("--no-headless", "Show browser window during recording")
+  .option("--no-cache", "Force re-recording (skip cache)")
+  .option("--no-thumbnail", "Skip thumbnail generation")
   .option("--tmp-dir <dir>", "Temporary directory for recordings")
   .option("-v, --verbose", "Show detailed progress", false)
   .action(async (scriptPath: string, opts) => {
@@ -51,15 +55,49 @@ program
 
       const outputs = await runPipeline(script, {
         outputDir: opts.output,
+        scriptDir: dirname(resolve(scriptPath)),
         variantFilter: opts.variant,
+        onlyScenes: opts.only,
         headless: opts.headless,
         tmpDir: opts.tmpDir,
+        noCache: opts.cache === false,
+        noThumbnail: opts.thumbnail === false,
+        verbose: opts.verbose,
         logger,
       });
 
       console.log("");
-      logger.success(`Done! ${outputs.length} video(s) rendered:`);
+      logger.success(`Done! ${outputs.length} file(s) rendered:`);
       outputs.forEach((p) => console.log(`  ${p}`));
+    } catch (err) {
+      logger.error(
+        err instanceof Error ? err.message : String(err)
+      );
+      process.exit(1);
+    }
+  });
+
+// ── preview ──
+
+program
+  .command("preview")
+  .description("Open Remotion Studio for frame-by-frame preview")
+  .argument("<script>", "Path to the YAML script file")
+  .option("--variant <id>", "Preview a specific variant")
+  .action(async (scriptPath: string, opts) => {
+    const logger = createLogger(true);
+
+    try {
+      logger.info(`Parsing script: ${scriptPath}`);
+      const script = parseScriptFile(scriptPath);
+      logger.success(
+        `Parsed "${script.meta.title}" (${script.scenes.length} scenes)`
+      );
+
+      await launchPreview(script, {
+        variantFilter: opts.variant,
+        logger,
+      });
     } catch (err) {
       logger.error(
         err instanceof Error ? err.message : String(err)

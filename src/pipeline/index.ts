@@ -1,4 +1,4 @@
-import { mkdirSync, copyFileSync } from "node:fs";
+import { mkdirSync, copyFileSync, existsSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { tmpdir } from "node:os";
 import type { Script, OutputVariant } from "../schema/script.schema.js";
@@ -8,19 +8,36 @@ import type {
   SceneRenderData,
 } from "./types.js";
 import { recordBrowserScene } from "../recorder/index.js";
+import {
+  computeSceneHash,
+  getCachedRecording,
+  saveToCache,
+  pruneCache,
+} from "../recorder/cache.js";
 import { renderVideo } from "../renderer/render.js";
+import { renderThumbnail } from "../renderer/thumbnail.js";
 import { secondsToFrames, msToFrames } from "../utils/timing.js";
 import type { Logger } from "../utils/logger.js";
 
 export interface PipelineOptions {
   /** Directory to write output files */
   outputDir: string;
+  /** Directory containing the script file (for resolving relative paths like logo) */
+  scriptDir?: string;
   /** Only render this variant (by ID). If omitted, renders all. */
   variantFilter?: string;
+  /** Only render these scene IDs. If omitted, renders all. */
+  onlyScenes?: string[];
   /** Run browser in visible mode for debugging */
   headless?: boolean;
   /** Temporary directory for recordings */
   tmpDir?: string;
+  /** Disable recording cache, force re-recording */
+  noCache?: boolean;
+  /** Disable thumbnail generation */
+  noThumbnail?: boolean;
+  /** Show all warnings including suppressed noise */
+  verbose?: boolean;
   logger?: Logger;
 }
 
@@ -34,14 +51,24 @@ export async function runPipeline(
 ): Promise<string[]> {
   const {
     outputDir,
+    scriptDir,
     variantFilter,
+    onlyScenes,
     headless = true,
     tmpDir,
+    noCache = false,
+    noThumbnail = false,
+    verbose = false,
     logger,
   } = options;
 
   const absoluteOutputDir = resolve(outputDir);
   mkdirSync(absoluteOutputDir, { recursive: true });
+
+  // Prune stale cache entries
+  if (!noCache) {
+    pruneCache();
+  }
 
   // Filter variants
   const variants = variantFilter
@@ -54,21 +81,40 @@ export async function runPipeline(
     );
   }
 
+  // Filter scenes by --only flag
+  let filteredScript = script;
+  if (onlyScenes && onlyScenes.length > 0) {
+    const allIds = script.scenes.map((s) => s.id);
+    const invalid = onlyScenes.filter((id) => !allIds.includes(id));
+    if (invalid.length > 0) {
+      throw new Error(
+        `Scene ID(s) not found: ${invalid.join(", ")}. Available: ${allIds.join(", ")}`
+      );
+    }
+    filteredScript = {
+      ...script,
+      scenes: script.scenes.filter((s) => onlyScenes.includes(s.id)),
+    };
+  }
+
   const outputFiles: string[] = [];
 
   for (const variant of variants) {
     logger?.info(`Processing variant: ${variant.id} (${variant.width}x${variant.height})`);
 
-    const outputPath = join(
-      absoluteOutputDir,
-      `${sanitizeFilename(script.meta.title)}-${variant.id}.mp4`
-    );
+    // Build output filename (append scene IDs if filtering)
+    const nameParts = [sanitizeFilename(script.meta.title)];
+    if (onlyScenes && onlyScenes.length > 0) {
+      nameParts.push(...onlyScenes.map(sanitizeFilename));
+    }
+    nameParts.push(variant.id);
+    const outputPath = join(absoluteOutputDir, `${nameParts.join("-")}.mp4`);
 
     // Step 1: Record all browser scenes
     const recordings = await recordBrowserScenes(
-      script,
+      filteredScript,
       variant,
-      { headless, tmpDir, logger }
+      { headless, tmpDir, noCache, globalCss: script.meta.globalCss, logger }
     );
 
     // Step 2: Copy recordings to a public dir that Remotion can serve
@@ -81,9 +127,24 @@ export async function runPipeline(
 
     const publicRecordings = copyRecordingsToPublicDir(recordings, publicDir);
 
+    // Step 2b: Copy brand logo to public dir if it exists
+    let resolvedBrand = filteredScript.brand;
+    if (filteredScript.brand.logo) {
+      const logoSource = resolve(scriptDir ?? process.cwd(), filteredScript.brand.logo);
+      if (existsSync(logoSource)) {
+        const logoFilename = basename(logoSource);
+        const logoDest = join(publicDir, logoFilename);
+        copyFileSync(logoSource, logoDest);
+        resolvedBrand = { ...filteredScript.brand, logo: logoFilename };
+      } else {
+        logger?.warn(`Logo not found: ${logoSource}`);
+      }
+    }
+
     // Step 3: Build composition props (using staticFile references)
+    const scriptWithResolvedBrand = { ...filteredScript, brand: resolvedBrand };
     const compositionProps = buildCompositionProps(
-      script,
+      scriptWithResolvedBrand,
       variant,
       publicRecordings
     );
@@ -93,11 +154,28 @@ export async function runPipeline(
       outputPath,
       props: compositionProps,
       publicDir,
+      verbose,
       logger,
     });
 
     outputFiles.push(outputPath);
     logger?.success(`Output: ${outputPath}`);
+
+    // Step 5: Generate thumbnail if enabled
+    const thumbnailConfig = script.output.thumbnail;
+    const thumbnailEnabled = !noThumbnail && thumbnailConfig?.enabled !== false;
+    if (thumbnailEnabled) {
+      const thumbPath = outputPath.replace(/\.mp4$/, "-thumb.png");
+      await renderThumbnail({
+        outputPath: thumbPath,
+        props: compositionProps,
+        publicDir,
+        scene: thumbnailConfig?.scene,
+        frame: thumbnailConfig?.frame,
+        logger,
+      });
+      outputFiles.push(thumbPath);
+    }
   }
 
   return outputFiles;
@@ -133,7 +211,7 @@ function copyRecordingsToPublicDir(
 async function recordBrowserScenes(
   script: Script,
   variant: OutputVariant,
-  options: { headless?: boolean; tmpDir?: string; logger?: Logger }
+  options: { headless?: boolean; tmpDir?: string; noCache?: boolean; globalCss?: string; logger?: Logger }
 ): Promise<Map<string, RecordingResult>> {
   const recordings = new Map<string, RecordingResult>();
 
@@ -142,6 +220,17 @@ async function recordBrowserScenes(
   for (const scene of browserScenes) {
     if (scene.type !== "browser") continue;
 
+    // Check cache first
+    if (!options.noCache) {
+      const hash = computeSceneHash(scene, variant);
+      const cached = getCachedRecording(hash);
+      if (cached) {
+        options.logger?.info(`Cache hit for scene "${scene.id}" (${variant.id})`);
+        recordings.set(scene.id, cached);
+        continue;
+      }
+    }
+
     const spinner = options.logger?.spinner(
       `Recording scene "${scene.id}" for ${variant.id}...`
     );
@@ -149,8 +238,15 @@ async function recordBrowserScenes(
     const result = await recordBrowserScene(scene, variant, {
       headless: options.headless,
       tmpDir: options.tmpDir,
+      globalCss: options.globalCss,
       logger: options.logger,
     });
+
+    // Save to cache
+    if (!options.noCache) {
+      const hash = computeSceneHash(scene, variant);
+      saveToCache(hash, result);
+    }
 
     recordings.set(scene.id, result);
     spinner?.succeed(
@@ -171,7 +267,12 @@ export function buildCompositionProps(
 ): CompositionProps {
   const fps = script.output.fps;
 
+  const globalTransition = script.output.transition;
+
   const scenes: SceneRenderData[] = script.scenes.map((scene) => {
+    // Per-scene transition overrides global default
+    const transition = scene.transition ?? globalTransition;
+
     if (scene.type === "title") {
       return {
         sceneId: scene.id,
@@ -180,6 +281,7 @@ export function buildCompositionProps(
         heading: scene.heading,
         subheading: scene.subheading,
         titleVariant: scene.variant,
+        transition,
       };
     }
 
@@ -195,6 +297,10 @@ export function buildCompositionProps(
       durationFrames: msToFrames(recording.durationMs, fps),
       videoPath: recording.videoPath,
       timestamps: recording.timestamps,
+      url: scene.url,
+      cursorConfig: scene.cursor,
+      frameConfig: scene.frame,
+      transition,
     };
   });
 

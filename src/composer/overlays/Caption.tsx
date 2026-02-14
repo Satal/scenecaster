@@ -30,8 +30,11 @@ export const Caption: React.FC<CaptionProps> = ({
   durationFrames,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width } = useVideoConfig();
   const theme = useTheme();
+
+  // Scale text relative to width (designed for 1920px baseline)
+  const s = Math.min(1920 / width, 1.5);
 
   const relativeFrame = frame - startFrame;
 
@@ -60,8 +63,8 @@ export const Caption: React.FC<CaptionProps> = ({
     right: 0,
     display: "flex",
     justifyContent: "center",
-    ...(position === "top" && { top: 40 }),
-    ...(position === "bottom" && { bottom: 40 }),
+    ...(position === "top" && { top: 40 * s }),
+    ...(position === "bottom" && { bottom: 40 * s }),
     ...(position === "center" && {
       top: "50%",
       transform: "translateY(-50%)",
@@ -69,7 +72,7 @@ export const Caption: React.FC<CaptionProps> = ({
   };
 
   // Style variants
-  const captionStyle = getCaptionStyle(style, theme);
+  const captionStyle = getCaptionStyle(style, theme, s);
 
   // Animation transforms
   const animStyle = getAnimationStyle(animation, animationProgress, fadeOut);
@@ -95,10 +98,11 @@ export const Caption: React.FC<CaptionProps> = ({
 
 function getCaptionStyle(
   style: CaptionStyle,
-  theme: { primaryColor: string; textColor: string; backgroundColor: string }
+  theme: { primaryColor: string; textColor: string; backgroundColor: string },
+  s: number
 ): React.CSSProperties {
   const base: React.CSSProperties = {
-    fontSize: 28,
+    fontSize: 28 * s,
     fontWeight: 600,
     lineHeight: 1.4,
   };
@@ -109,7 +113,7 @@ function getCaptionStyle(
         ...base,
         backgroundColor: `${theme.primaryColor}ee`,
         color: theme.textColor,
-        padding: "16px 32px",
+        padding: `${16 * s}px ${32 * s}px`,
         borderRadius: 0,
         width: "100%",
         maxWidth: "100%",
@@ -119,27 +123,27 @@ function getCaptionStyle(
         ...base,
         backgroundColor: `${theme.backgroundColor}dd`,
         color: theme.textColor,
-        padding: "12px 24px",
-        borderRadius: 16,
-        border: `2px solid ${theme.primaryColor}`,
+        padding: `${12 * s}px ${24 * s}px`,
+        borderRadius: 16 * s,
+        border: `${2 * s}px solid ${theme.primaryColor}`,
       };
     case "subtitle":
       return {
         ...base,
         backgroundColor: "rgba(0, 0, 0, 0.75)",
         color: "#ffffff",
-        padding: "8px 20px",
-        borderRadius: 4,
-        fontSize: 24,
+        padding: `${8 * s}px ${20 * s}px`,
+        borderRadius: 4 * s,
+        fontSize: 24 * s,
       };
     case "pill":
       return {
         ...base,
         backgroundColor: theme.primaryColor,
         color: theme.textColor,
-        padding: "10px 28px",
+        padding: `${10 * s}px ${28 * s}px`,
         borderRadius: 999,
-        fontSize: 22,
+        fontSize: 22 * s,
       };
   }
 }

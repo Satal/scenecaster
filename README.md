@@ -61,9 +61,9 @@ YAML Script ──> Playwright Recording ──> Remotion Composition ──> MP
 
 **2. Playwright records the browser** viewport (no chrome, just the page) by automating your actual web app. Clicks, typing, scrolling - all captured as video.
 
-**3. Remotion composes everything** into a polished video: branded title cards with spring animations, the browser recording with synchronised caption overlays, smooth transitions between scenes, and a progress bar.
+**3. Remotion composes everything** into a polished video: branded title cards with spring animations, the browser recording with synchronised caption overlays, smooth transitions between scenes, an animated cursor, and optional browser chrome framing.
 
-**4. Out comes an MP4** (H.264) at exactly the dimensions you specified.
+**4. Out comes an MP4** (H.264) at exactly the dimensions you specified, plus a thumbnail PNG.
 
 Want a 16:9 for YouTube *and* a 9:16 for Shorts? Define both as variants. SceneCaster re-records at the right viewport size so your responsive layout does the work, then renders each one.
 
@@ -76,7 +76,11 @@ A SceneCaster script is a YAML file with four sections:
 ```yaml
 meta:
   title: "How to Create an Invoice"
+  globalCss: |                           # Optional - injected into every browser scene
+    .cookie-banner { display: none !important; }
 ```
+
+The `globalCss` field lets you inject CSS into every browser scene. Useful for hiding cookie banners, chat widgets, or anything else that shouldn't appear in the video.
 
 ### `brand` - Your visual identity
 
@@ -86,16 +90,25 @@ brand:
   primaryColor: "#1e40af"         # Accent colour (captions, highlights, progress bar)
   backgroundColor: "#0f172a"      # Title card background
   textColor: "#f8fafc"            # Title card text
-  fontFamily: "Inter"             # Font family
+  fontFamily: "Poppins"           # Google Font (loaded automatically)
 ```
 
 All fields have sensible defaults. You can omit the entire `brand` section if you're happy with the built-in dark theme.
+
+The `fontFamily` is loaded from Google Fonts automatically. If the font doesn't exist on Google Fonts, SceneCaster falls back gracefully with a warning.
 
 ### `output` - Render targets
 
 ```yaml
 output:
   fps: 30
+  transition:                      # Global default transition between scenes
+    type: fade
+    duration: 0.5
+  thumbnail:                       # Thumbnail PNG generation
+    enabled: true
+    scene: intro                   # Optional - which scene to capture (default: first title)
+    frame: 30                      # Optional - specific frame number
   variants:
     - id: desktop
       width: 1920
@@ -128,6 +141,9 @@ Branded cards with animated text. Use them for intros, chapter breaks, and outro
   heading: "Creating Invoices"
   subheading: "A step-by-step guide"
   variant: main                    # main | chapter | minimal | outro
+  transition:                      # Optional - overrides global default
+    type: zoom
+    duration: 0.6
 ```
 
 | Variant | What it looks like |
@@ -137,7 +153,7 @@ Branded cards with animated text. Use them for intros, chapter breaks, and outro
 | `minimal` | Just the heading. Clean and simple. |
 | `outro` | Like `main` but intended as a closing card. |
 
-All text animates in with spring physics (staggered heading, subheading, accent line). Scenes fade in and out automatically.
+All text animates in with spring physics (staggered heading, subheading, accent line).
 
 #### Browser Scenes
 
@@ -147,10 +163,22 @@ The main event. SceneCaster launches a real browser, navigates to your app, and 
 - type: browser
   id: create-invoice
   url: "https://app.example.com/invoices"
+  frame:                             # Optional browser chrome overlay
+    style: macos                     # macos | minimal | none
+    showUrl: true
+    darkMode: false
+  cursor:                            # Optional animated cursor
+    enabled: true
+    style: pointer                   # pointer | default
+    color: "#000000"
+    size: 24
+  customCss: |                       # Optional - CSS for this scene only
+    .sidebar { display: none !important; }
   steps:
     - action: navigate
       url: "https://app.example.com/invoices"
       duration: 3
+      waitFor: "main"                # Wait for element after navigation
       caption:
         text: "Go to the Invoices page"
         position: bottom
@@ -182,6 +210,10 @@ The main event. SceneCaster launches a real browser, navigates to your app, and 
         text: "The invoice is saved automatically"
         style: bubble
         animation: typewriter
+  transition:
+    type: slide
+    direction: left
+    duration: 0.4
 ```
 
 Each step's `duration` is how long the viewer sees the *result* of that action before moving on. This is what makes the video watchable - enough time to read the caption and understand what happened.
@@ -195,6 +227,107 @@ Each step's `duration` is how long the viewer sees the *result* of that action b
 | `fill` | Types into an input field character by character | `selector`, `value`, `typeSpeed` |
 | `scroll` | Scrolls the page or to an element | `y`, `x`, `smooth`, or `selector` |
 | `wait` | Pauses | `timeout` (ms) |
+
+### `waitFor` - Wait for elements
+
+Any step can include a `waitFor` field to wait for an element before (or after, for `navigate` actions) executing:
+
+```yaml
+# Shorthand: just a selector (waits for visible, 5s timeout)
+waitFor: ".dashboard-loaded"
+
+# Full form: control state and timeout
+waitFor:
+  selector: ".data-table"
+  state: visible                   # visible | attached | hidden | detached
+  timeout: 10000                   # ms
+```
+
+This is especially useful for SPAs where content loads asynchronously. For `navigate` actions, the `waitFor` runs after the page loads. For all other actions, it runs before execution.
+
+### CSS Injection
+
+Inject CSS to hide elements that shouldn't appear in the video:
+
+```yaml
+# Global CSS (every browser scene)
+meta:
+  globalCss: |
+    .cookie-banner, .chat-widget { display: none !important; }
+
+# Per-scene CSS
+- type: browser
+  customCss: |
+    .sidebar { width: 0 !important; }
+```
+
+CSS is re-injected on each navigation, so it persists across page loads.
+
+### Transitions
+
+Control how scenes enter with configurable transitions:
+
+```yaml
+# Global default (in output section)
+output:
+  transition:
+    type: fade
+    duration: 0.5
+
+# Per-scene override
+- type: title
+  transition:
+    type: zoom
+    duration: 0.6
+
+- type: browser
+  transition:
+    type: slide
+    direction: right        # left | right | up | down
+    duration: 0.4
+```
+
+| Transition | Description |
+|-----------|-------------|
+| `fade` | Smooth opacity crossfade. The default. |
+| `slide` | Slides in from a direction. Set `direction` to `left`, `right`, `up`, or `down`. |
+| `zoom` | Scales from 80% to 100% with a fade. Dramatic. |
+| `none` | Cut. Instant switch with no animation. |
+
+### Animated Cursor
+
+Browser scenes can display an animated fake cursor that moves between interaction targets:
+
+```yaml
+cursor:
+  enabled: true
+  style: pointer               # pointer (arrow) or default
+  color: "#000000"
+  size: 24                     # px
+```
+
+The cursor automatically:
+- Moves to click targets with spring-based animation
+- Shows a bounce effect on clicks
+- Switches to an I-beam cursor during fill actions
+- Fades in at the start of each browser scene
+
+### Browser Chrome Frame
+
+Wrap browser recordings in a realistic window frame:
+
+```yaml
+frame:
+  style: macos                 # macos | minimal | none
+  showUrl: true                # Show the URL in the title bar
+  darkMode: false              # Dark title bar variant
+```
+
+| Style | Description |
+|-------|-------------|
+| `macos` | Full macOS-style chrome with traffic light dots, URL bar, and drop shadow. |
+| `minimal` | Just the dots and rounded corners. Less visual noise. |
+| `none` | No frame. Raw browser recording. |
 
 ### Captions
 
@@ -255,16 +388,36 @@ Record and render the video.
 scenecaster render tutorial.yaml
 scenecaster render tutorial.yaml -o ./videos
 scenecaster render tutorial.yaml --variant desktop
+scenecaster render tutorial.yaml --only intro fill-details
 scenecaster render tutorial.yaml --no-headless -v
+scenecaster render tutorial.yaml --no-cache --no-thumbnail
 ```
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-o, --output <dir>` | Where to write the MP4(s) | `./output` |
 | `--variant <id>` | Render only one variant | all variants |
+| `--only <ids...>` | Render only specific scene IDs | all scenes |
 | `--no-headless` | Show the browser window (useful for debugging) | headless |
+| `--no-cache` | Force re-recording (skip cached recordings) | cache enabled |
+| `--no-thumbnail` | Skip thumbnail PNG generation | thumbnails on |
 | `--tmp-dir <dir>` | Where to store intermediate recordings | system temp |
-| `-v, --verbose` | Show detailed progress logs | off |
+| `-v, --verbose` | Show detailed progress logs (including Remotion warnings) | off |
+
+### `scenecaster preview <script>`
+
+Open Remotion Studio for frame-by-frame preview without rendering.
+
+```bash
+scenecaster preview tutorial.yaml
+scenecaster preview tutorial.yaml --variant mobile
+```
+
+Uses cached recordings where available. Browser scenes without cached recordings show placeholder frames.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--variant <id>` | Preview a specific variant | first variant |
 
 ### `scenecaster validate <script>`
 
@@ -287,6 +440,34 @@ scenecaster init --name onboarding-guide
 # ✔ Created onboarding-guide.scenecaster.yaml
 ```
 
+## Recording Cache
+
+SceneCaster caches browser recordings to speed up re-renders. When you change a title card or tweak a caption, only the modified browser scenes get re-recorded.
+
+The cache works by hashing each browser scene's configuration (URL, steps, viewport dimensions, CSS). If the hash matches a previous recording, the cached video is reused.
+
+Cache entries expire after 24 hours and are automatically pruned on each render.
+
+To force a fresh recording:
+
+```bash
+scenecaster render tutorial.yaml --no-cache
+```
+
+## Thumbnails
+
+By default, SceneCaster generates a thumbnail PNG alongside each MP4. It captures a frame from the first title scene (about 1 second in, after spring animations have settled).
+
+```yaml
+output:
+  thumbnail:
+    enabled: true
+    scene: intro           # Optional - capture from a specific scene
+    frame: 45              # Optional - specific frame number
+```
+
+Disable with `--no-thumbnail` or `thumbnail.enabled: false`.
+
 ## API
 
 Use SceneCaster programmatically in Node.js scripts, CI pipelines, or your own tools.
@@ -302,10 +483,13 @@ const outputFiles = await runPipeline(script, {
   outputDir: "./videos",
   headless: true,
   // variantFilter: "desktop",  // Optional: render just one variant
+  // onlyScenes: ["intro", "fill-details"],  // Optional: specific scenes
+  // noCache: true,  // Optional: force re-recording
+  // noThumbnail: true,  // Optional: skip thumbnail generation
 });
 
 console.log("Rendered:", outputFiles);
-// ["./videos/how-to-add-a-team-member-desktop.mp4"]
+// ["./videos/how-to-add-a-team-member-desktop.mp4", "./videos/how-to-add-a-team-member-desktop-thumb.png"]
 ```
 
 ### Validation only
@@ -411,6 +595,8 @@ Here's a real-world script for a SaaS onboarding tutorial:
 ```yaml
 meta:
   title: "How to Add a Team Member"
+  globalCss: |
+    .cookie-banner { display: none !important; }
 
 brand:
   logo: "./assets/logo.png"
@@ -421,6 +607,11 @@ brand:
 
 output:
   fps: 30
+  transition:
+    type: fade
+    duration: 0.5
+  thumbnail:
+    enabled: true
   variants:
     - id: desktop
       width: 1920
@@ -438,14 +629,24 @@ scenes:
     duration: 4
     heading: "Adding Team Members"
     subheading: "A step-by-step guide"
+    transition:
+      type: zoom
+      duration: 0.6
 
   - type: browser
     id: navigate-to-team
     url: "https://demo.example.com/app/team-members"
+    frame:
+      style: macos
+      showUrl: true
+    cursor:
+      enabled: true
+      style: pointer
     steps:
       - action: navigate
         url: "https://demo.example.com/app/team-members"
         duration: 3
+        waitFor: ".team-members-table"
         caption:
           text: "Navigate to Team Members"
           position: bottom
@@ -462,6 +663,11 @@ scenes:
   - type: browser
     id: fill-details
     url: "https://demo.example.com/app/team-members/create"
+    frame:
+      style: minimal
+      darkMode: true
+    cursor:
+      enabled: true
     steps:
       - action: fill
         selector: "input[name='name']"
@@ -489,6 +695,10 @@ scenes:
         duration: 3
         caption:
           text: "Save the new team member"
+    transition:
+      type: slide
+      direction: left
+      duration: 0.4
 
   - type: title
     id: outro
@@ -496,6 +706,19 @@ scenes:
     heading: "You're all set!"
     subheading: "Your team member has been added"
     variant: outro
+```
+
+## Error Messages
+
+When something goes wrong during recording, SceneCaster provides actionable error messages instead of raw Playwright stack traces:
+
+```
+✖ Could not find element in scene "fill-details", step 2.
+  Page URL: https://demo.example.com/app/team-members/create
+  Suggestions:
+    - Add a "waitFor" field to wait for the element to appear
+    - Check that the selector matches an element on the page
+    - Try running with --no-headless to see the browser
 ```
 
 ## Why SceneCaster?
@@ -512,12 +735,23 @@ scenes:
 | Branding needs to be consistent | `brand` config applied to every video |
 | "Can you make the font bigger?" | Change one line, re-render |
 | New team member needs to make videos | Hand them the YAML format, not a video editor |
+| Re-recording unchanged scenes is slow | Recording cache skips unchanged scenes |
+| Cookie banners ruin the video | CSS injection hides them globally |
 
 ## Requirements
 
 - **Node.js** >= 18
 - **Chromium** for Playwright: `npx playwright install chromium`
 - **FFmpeg** (usually pre-installed or bundled by Remotion)
+
+## Remotion Licensing
+
+SceneCaster uses [Remotion](https://remotion.dev) for video composition and rendering. Remotion's licensing depends on your team size:
+
+- **Individuals and companies with 3 or fewer people**: Remotion is free under the [Remotion License](https://github.com/remotion-dev/remotion/blob/main/LICENSE.md).
+- **Companies with 4 or more people**: A [Remotion Company License](https://www.remotion.pro/license) is required. See [remotion.pro](https://www.remotion.pro) for pricing.
+
+This applies to the total number of people in your company, not just those using SceneCaster. Check the [Remotion licensing FAQ](https://www.remotion.dev/docs/license) for full details.
 
 ## Tech Stack
 
@@ -537,7 +771,7 @@ cd scenecaster
 npm install
 npx playwright install chromium
 
-# Run tests (127 of them)
+# Run tests (194 of them)
 npm test
 
 # Type check
@@ -553,10 +787,7 @@ npm run dev
 ## Roadmap
 
 - [ ] Authentication support (cookies, login steps, Playwright storage state)
-- [ ] `preview` command using Remotion Studio
-- [ ] Google Fonts loading
 - [ ] `hover` and `pressKey` actions
-- [ ] Custom CSS injection (hide cookie banners, etc.)
 - [ ] Programmatic plugin system for custom actions
 - [ ] Background music support
 - [ ] Watch mode for rapid iteration

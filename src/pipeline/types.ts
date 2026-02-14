@@ -1,4 +1,14 @@
-import type { Caption } from "../schema/script.schema.js";
+import type { Caption, CursorConfig, FrameConfig, Transition } from "../schema/script.schema.js";
+
+/**
+ * Bounding box of the target element, captured for cursor overlay.
+ */
+export interface TargetRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 /**
  * Timestamp marking when an action started/ended during recording.
@@ -13,6 +23,10 @@ export interface ActionTimestamp {
   endMs: number;
   /** Caption to display during this action (if any) */
   caption?: Caption;
+  /** Bounding box of the target element (for cursor overlay) */
+  targetRect?: TargetRect;
+  /** Action type for cursor style differentiation */
+  actionType?: string;
 }
 
 /**
@@ -47,6 +61,10 @@ export interface SceneRenderData {
   // Browser scene data
   videoPath?: string;
   timestamps?: ActionTimestamp[];
+  url?: string;
+  cursorConfig?: CursorConfig;
+  frameConfig?: FrameConfig;
+  transition?: Transition;
 }
 
 /**

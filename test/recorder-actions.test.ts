@@ -9,6 +9,7 @@ function createMockLocator() {
     fill: vi.fn().mockResolvedValue(undefined),
     pressSequentially: vi.fn().mockResolvedValue(undefined),
     scrollIntoViewIfNeeded: vi.fn().mockResolvedValue(undefined),
+    waitFor: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -260,6 +261,67 @@ describe("executeStep", () => {
       await executeStep(page as any, step);
 
       expect(page.waitForTimeout).toHaveBeenCalledWith(100);
+    });
+  });
+
+  describe("waitFor handling", () => {
+    it("should wait for selector string before executing step", async () => {
+      const locator = createMockLocator();
+      const page = createMockPage(locator);
+      const step: Step = {
+        action: "click",
+        selector: "#btn",
+        highlight: false,
+        duration: 1,
+        waitFor: ".content-loaded",
+      };
+
+      await executeStep(page as any, step);
+
+      // waitFor locator should be called first with the waitFor selector
+      expect(page.locator).toHaveBeenCalledWith(".content-loaded");
+      expect(locator.waitFor).toHaveBeenCalledWith({
+        state: "visible",
+        timeout: 5000,
+      });
+      // Then the actual click action
+      expect(page.locator).toHaveBeenCalledWith("#btn");
+      expect(locator.click).toHaveBeenCalled();
+    });
+
+    it("should wait for selector object before executing step", async () => {
+      const locator = createMockLocator();
+      const page = createMockPage(locator);
+      const step: Step = {
+        action: "click",
+        selector: "#btn",
+        highlight: false,
+        duration: 1,
+        waitFor: { selector: "#loading", state: "hidden", timeout: 10000 },
+      };
+
+      await executeStep(page as any, step);
+
+      expect(page.locator).toHaveBeenCalledWith("#loading");
+      expect(locator.waitFor).toHaveBeenCalledWith({
+        state: "hidden",
+        timeout: 10000,
+      });
+    });
+
+    it("should not call waitFor when not specified", async () => {
+      const locator = createMockLocator();
+      const page = createMockPage(locator);
+      const step: Step = {
+        action: "click",
+        selector: "#btn",
+        highlight: false,
+        duration: 1,
+      };
+
+      await executeStep(page as any, step);
+
+      expect(locator.waitFor).not.toHaveBeenCalled();
     });
   });
 });

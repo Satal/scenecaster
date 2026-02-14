@@ -18,11 +18,25 @@ export const CaptionSchema = z.object({
   animation: CaptionAnimationSchema.default("slideUp"),
 });
 
+// ── WaitFor ──
+
+export const WaitForObjectSchema = z.object({
+  selector: z.string().min(1),
+  state: z.enum(["visible", "attached", "hidden", "detached"]).default("visible"),
+  timeout: z.number().positive().default(5000),
+});
+
+export const WaitForSchema = z.union([
+  z.string().min(1), // shorthand: just a selector
+  WaitForObjectSchema,
+]);
+
 // ── Actions ──
 
 const BaseStepSchema = z.object({
   duration: z.number().positive().default(2),
   caption: CaptionSchema.optional(),
+  waitFor: WaitForSchema.optional(),
 });
 
 export const NavigateActionSchema = BaseStepSchema.extend({
@@ -64,6 +78,14 @@ export const StepSchema = z.discriminatedUnion("action", [
   WaitActionSchema,
 ]);
 
+// ── Transitions ──
+
+export const TransitionSchema = z.object({
+  type: z.enum(["fade", "slide", "zoom", "none"]).default("fade"),
+  duration: z.number().positive().default(0.5),
+  direction: z.enum(["left", "right", "up", "down"]).optional(),
+});
+
 // ── Scenes ──
 
 export const TitleVariantSchema = z.enum([
@@ -80,6 +102,7 @@ export const TitleSceneSchema = z.object({
   heading: z.string().min(1),
   subheading: z.string().optional(),
   variant: TitleVariantSchema.default("main"),
+  transition: TransitionSchema.optional(),
 });
 
 export const SelectorOverridesSchema = z.record(
@@ -87,12 +110,29 @@ export const SelectorOverridesSchema = z.record(
   z.record(z.string(), z.string())
 );
 
+export const CursorConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  style: z.enum(["default", "pointer"]).default("pointer"),
+  color: z.string().default("#000000"),
+  size: z.number().positive().default(24),
+});
+
+export const FrameConfigSchema = z.object({
+  style: z.enum(["macos", "minimal", "none"]).default("macos"),
+  showUrl: z.boolean().default(true),
+  darkMode: z.boolean().default(false),
+});
+
 export const BrowserSceneSchema = z.object({
   type: z.literal("browser"),
   id: z.string().min(1),
   url: z.string().url(),
   steps: z.array(StepSchema).min(1),
   selectorOverrides: SelectorOverridesSchema.optional(),
+  customCss: z.string().optional(),
+  cursor: CursorConfigSchema.optional(),
+  frame: FrameConfigSchema.optional(),
+  transition: TransitionSchema.optional(),
 });
 
 export const SceneSchema = z.discriminatedUnion("type", [
@@ -115,6 +155,14 @@ export const OutputVariantSchema = z.object({
   viewport: ViewportSchema.optional(),
 });
 
+// ── Thumbnail ──
+
+export const ThumbnailConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  scene: z.string().optional(),
+  frame: z.number().int().nonnegative().optional(),
+});
+
 // ── Brand ──
 
 export const BrandSchema = z.object({
@@ -130,12 +178,15 @@ export const BrandSchema = z.object({
 export const OutputConfigSchema = z.object({
   fps: z.number().int().positive().default(30),
   variants: z.array(OutputVariantSchema).min(1),
+  transition: TransitionSchema.optional(),
+  thumbnail: ThumbnailConfigSchema.optional(),
 });
 
 // ── Meta ──
 
 export const MetaSchema = z.object({
   title: z.string().min(1),
+  globalCss: z.string().optional(),
 });
 
 // ── Top-Level Script ──
@@ -166,14 +217,20 @@ export type ScrollAction = z.infer<typeof ScrollActionSchema>;
 export type WaitAction = z.infer<typeof WaitActionSchema>;
 export type Step = z.infer<typeof StepSchema>;
 
+export type CursorConfig = z.infer<typeof CursorConfigSchema>;
+export type FrameConfig = z.infer<typeof FrameConfigSchema>;
 export type TitleScene = z.infer<typeof TitleSceneSchema>;
 export type BrowserScene = z.infer<typeof BrowserSceneSchema>;
 export type Scene = z.infer<typeof SceneSchema>;
 export type TitleVariant = z.infer<typeof TitleVariantSchema>;
 
+export type Transition = z.infer<typeof TransitionSchema>;
+export type WaitFor = z.infer<typeof WaitForSchema>;
+export type WaitForObject = z.infer<typeof WaitForObjectSchema>;
 export type OutputVariant = z.infer<typeof OutputVariantSchema>;
 export type ViewportConfig = z.infer<typeof ViewportSchema>;
 export type Brand = z.infer<typeof BrandSchema>;
+export type ThumbnailConfig = z.infer<typeof ThumbnailConfigSchema>;
 export type OutputConfig = z.infer<typeof OutputConfigSchema>;
 export type Meta = z.infer<typeof MetaSchema>;
 export type Script = z.infer<typeof ScriptSchema>;

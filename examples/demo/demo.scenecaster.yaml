@@ -1,30 +1,71 @@
 meta:
   title: "SceneCaster Demo"
+  globalCss: |
+    .cookie-banner, .chat-widget, [data-testid="cookie-consent"] {
+      display: none !important;
+    }
 
 brand:
-  primaryColor: "#2563eb"
+  logo: "./assets/siteseedling-logo.png"
+  primaryColor: "#16a34a"
   backgroundColor: "#0f172a"
   textColor: "#f8fafc"
-  fontFamily: "Inter"
+  fontFamily: "Poppins"
 
 output:
   fps: 30
+  transition:
+    type: fade
+    duration: 0.5
+  thumbnail:
+    enabled: true
   variants:
     - id: desktop
       width: 1920
       height: 1080
       aspectRatio: "16:9"
 
+    - id: mobile
+      width: 1080
+      height: 1920
+      aspectRatio: "9:16"
+      viewport:
+        width: 390
+        height: 693
+
 scenes:
   - type: title
     id: intro
-    duration: 4
+    duration: 5
     heading: "SceneCaster Demo"
     subheading: "Automated tutorial videos from YAML"
+    variant: main
+    transition:
+      type: zoom
+      duration: 0.6
+
+  - type: title
+    id: chapter-browse
+    duration: 3
+    heading: "Browsing a Live Site"
+    variant: chapter
+    transition:
+      type: slide
+      direction: right
+      duration: 0.4
 
   - type: browser
     id: visit-site
     url: "https://siteseedling.com"
+    frame:
+      style: macos
+      showUrl: true
+      darkMode: false
+    cursor:
+      enabled: true
+      style: pointer
+      color: "#000000"
+      size: 24
     steps:
       - action: navigate
         url: "https://siteseedling.com"
@@ -40,9 +81,9 @@ scenes:
         smooth: true
         duration: 3
         caption:
-          text: "Scroll down to see the features"
+          text: "Scroll down to explore the features"
           position: bottom
-          style: bar
+          style: subtitle
           animation: fadeIn
 
       - action: scroll
@@ -52,12 +93,70 @@ scenes:
         caption:
           text: "Professional websites for service businesses"
           position: bottom
-          style: subtitle
+          style: bubble
+          animation: typewriter
+
+    transition:
+      type: fade
+      duration: 0.5
+
+  - type: title
+    id: chapter-interact
+    duration: 3
+    heading: "Interactive Actions"
+    variant: chapter
+    transition:
+      type: slide
+      direction: left
+      duration: 0.4
+
+  - type: browser
+    id: interact-demo
+    url: "https://siteseedling.com"
+    frame:
+      style: minimal
+      darkMode: true
+    cursor:
+      enabled: true
+      style: pointer
+    customCss: |
+      .announcement-bar { display: none !important; }
+    steps:
+      - action: navigate
+        url: "https://siteseedling.com"
+        duration: 3
+        waitFor: "main"
+        caption:
+          text: "Navigate back to the homepage"
+          position: bottom
+          style: pill
           animation: slideUp
+
+      - action: scroll
+        y: 800
+        smooth: true
+        duration: 2
+        caption:
+          text: "Scrolling through the page"
+          position: top
+          style: subtitle
+          animation: fadeIn
+
+      - action: wait
+        timeout: 1500
+        duration: 3
+        caption:
+          text: "SceneCaster records all of this automatically!"
+          position: center
+          style: bubble
+          animation: typewriter
 
   - type: title
     id: outro
-    duration: 4
+    duration: 5
     heading: "That's SceneCaster!"
     subheading: "YAML in, MP4 out"
     variant: outro
+    transition:
+      type: zoom
+      duration: 0.6

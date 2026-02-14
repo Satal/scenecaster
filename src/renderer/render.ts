@@ -14,14 +14,31 @@ export interface RenderOptions {
   props: CompositionProps;
   /** Directory containing video assets that Remotion should serve */
   publicDir?: string;
+  /** Show all warnings including suppressed Remotion noise */
+  verbose?: boolean;
   logger?: Logger;
 }
 
 /**
  * Bundle the Remotion composition and render to MP4.
  */
+const SUPPRESSED_PATTERNS = [
+  "Detected differing memory",
+  "Using the lower amount",
+];
+
 export async function renderVideo(options: RenderOptions): Promise<string> {
-  const { outputPath, props, publicDir, logger } = options;
+  const { outputPath, props, publicDir, verbose = false, logger } = options;
+
+  // Suppress noisy Remotion warnings unless verbose
+  const originalWarn = console.warn;
+  if (!verbose) {
+    console.warn = (...args: unknown[]) => {
+      const msg = args.map(String).join(" ");
+      if (SUPPRESSED_PATTERNS.some((p) => msg.includes(p))) return;
+      originalWarn(...args);
+    };
+  }
 
   const spinner = logger?.spinner("Bundling Remotion composition...");
 
@@ -92,6 +109,9 @@ export async function renderVideo(options: RenderOptions): Promise<string> {
   });
 
   renderSpinner?.succeed(`Rendered to ${outputPath}`);
+
+  // Restore console.warn
+  console.warn = originalWarn;
 
   return outputPath;
 }

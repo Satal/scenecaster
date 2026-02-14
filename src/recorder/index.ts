@@ -6,10 +6,12 @@ import type {
   BrowserScene,
   OutputVariant,
   Step,
+  Script,
 } from "../schema/script.schema.js";
-import type { ActionTimestamp, RecordingResult } from "../pipeline/types.js";
+import type { ActionTimestamp, RecordingResult, TargetRect } from "../pipeline/types.js";
 import { executeStep } from "./actions.js";
 import { highlightElement } from "./highlight.js";
+import { RecordingError } from "./errors.js";
 import type { Logger } from "../utils/logger.js";
 
 export interface RecorderOptions {
@@ -19,6 +21,8 @@ export interface RecorderOptions {
   slowMo?: number;
   /** Temporary directory for recordings */
   tmpDir?: string;
+  /** Global CSS to inject into every page */
+  globalCss?: string;
   logger?: Logger;
 }
 
@@ -34,6 +38,7 @@ export async function recordBrowserScene(
     headless = true,
     slowMo = 0,
     tmpDir = join(tmpdir(), "scenecaster"),
+    globalCss,
   } = options;
 
   const recordDir = join(tmpDir, "recordings", scene.id, variant.id);
@@ -60,6 +65,21 @@ export async function recordBrowserScene(
   // Resolve selector overrides for this variant
   const overrides = scene.selectorOverrides?.[variant.id] ?? {};
 
+  // Build combined CSS (global + scene-level)
+  const combinedCss = [globalCss, scene.customCss].filter(Boolean).join("\n");
+
+  // Inject CSS into each page load
+  if (combinedCss) {
+    await page.addStyleTag({ content: combinedCss });
+    page.on("load", async () => {
+      try {
+        await page.addStyleTag({ content: combinedCss });
+      } catch {
+        // Page may have closed - ignore
+      }
+    });
+  }
+
   try {
     for (let i = 0; i < scene.steps.length; i++) {
       const step = resolveSelectors(scene.steps[i], overrides);
@@ -72,7 +92,29 @@ export async function recordBrowserScene(
         await page.waitForTimeout(500); // Brief pause to show highlight
       }
 
-      await executeStep(page, step);
+      try {
+        await executeStep(page, step);
+      } catch (err) {
+        throw new RecordingError(err instanceof Error ? err : new Error(String(err)), {
+          sceneId: scene.id,
+          stepIndex: i,
+          step,
+          pageUrl: page.url(),
+        });
+      }
+
+      // Capture target element bounding box for cursor overlay
+      let targetRect: TargetRect | undefined;
+      if ((step.action === "click" || step.action === "fill") && "selector" in step) {
+        try {
+          const box = await page.locator(step.selector).boundingBox();
+          if (box) {
+            targetRect = { x: box.x, y: box.y, width: box.width, height: box.height };
+          }
+        } catch {
+          // Element may have disappeared - skip cursor data
+        }
+      }
 
       // Remove highlight after action
       if (removeHighlight) {
@@ -90,6 +132,8 @@ export async function recordBrowserScene(
         startMs: stepStart,
         endMs: stepEnd,
         caption: step.caption,
+        targetRect,
+        actionType: step.action,
       });
     }
   } finally {

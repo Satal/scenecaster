@@ -8,6 +8,9 @@ import {
   OutputVariantSchema,
   BrandSchema,
   OutputConfigSchema,
+  WaitForSchema,
+  MetaSchema,
+  TransitionSchema,
 } from "../src/schema/script.schema.js";
 
 describe("CaptionSchema edge cases", () => {
@@ -202,6 +205,236 @@ describe("StepSchema edge cases", () => {
       duration: 1,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("WaitForSchema edge cases", () => {
+  it("should accept a string shorthand", () => {
+    const result = WaitForSchema.parse(".my-element");
+    expect(result).toBe(".my-element");
+  });
+
+  it("should reject empty string shorthand", () => {
+    const result = WaitForSchema.safeParse("");
+    expect(result.success).toBe(false);
+  });
+
+  it("should accept object form with defaults", () => {
+    const result = WaitForSchema.parse({ selector: "#loading" });
+    expect(result).toEqual({
+      selector: "#loading",
+      state: "visible",
+      timeout: 5000,
+    });
+  });
+
+  it("should accept all valid states", () => {
+    for (const state of ["visible", "attached", "hidden", "detached"] as const) {
+      const result = WaitForSchema.parse({ selector: "#el", state });
+      expect((result as { state: string }).state).toBe(state);
+    }
+  });
+
+  it("should reject invalid state", () => {
+    const result = WaitForSchema.safeParse({ selector: "#el", state: "ready" });
+    expect(result.success).toBe(false);
+  });
+
+  it("should accept custom timeout", () => {
+    const result = WaitForSchema.parse({ selector: "#el", timeout: 10000 });
+    expect((result as { timeout: number }).timeout).toBe(10000);
+  });
+
+  it("should reject negative timeout", () => {
+    const result = WaitForSchema.safeParse({ selector: "#el", timeout: -1 });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject object without selector", () => {
+    const result = WaitForSchema.safeParse({ state: "visible" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("Step waitFor integration", () => {
+  it("should accept step with string waitFor", () => {
+    const result = StepSchema.parse({
+      action: "click",
+      selector: "#btn",
+      duration: 1,
+      waitFor: ".loading-done",
+    });
+    expect(result.waitFor).toBe(".loading-done");
+  });
+
+  it("should accept step with object waitFor", () => {
+    const result = StepSchema.parse({
+      action: "fill",
+      selector: "#input",
+      value: "hello",
+      duration: 1,
+      waitFor: { selector: "#form", state: "attached", timeout: 3000 },
+    });
+    expect(result.waitFor).toEqual({
+      selector: "#form",
+      state: "attached",
+      timeout: 3000,
+    });
+  });
+
+  it("should allow step without waitFor", () => {
+    const result = StepSchema.parse({
+      action: "click",
+      selector: "#btn",
+      duration: 1,
+    });
+    expect(result.waitFor).toBeUndefined();
+  });
+});
+
+describe("CSS injection schema", () => {
+  it("should accept globalCss on meta", () => {
+    const result = MetaSchema.parse({
+      title: "Test",
+      globalCss: ".cookie-banner { display: none !important; }",
+    });
+    expect(result.globalCss).toBe(".cookie-banner { display: none !important; }");
+  });
+
+  it("should allow meta without globalCss", () => {
+    const result = MetaSchema.parse({ title: "Test" });
+    expect(result.globalCss).toBeUndefined();
+  });
+
+  it("should accept customCss on browser scene", () => {
+    const result = BrowserSceneSchema.parse({
+      type: "browser",
+      id: "demo",
+      url: "https://example.com",
+      steps: [{ action: "navigate", url: "https://example.com", duration: 2 }],
+      customCss: "#chat-widget { display: none; }",
+    });
+    expect(result.customCss).toBe("#chat-widget { display: none; }");
+  });
+
+  it("should allow browser scene without customCss", () => {
+    const result = BrowserSceneSchema.parse({
+      type: "browser",
+      id: "demo",
+      url: "https://example.com",
+      steps: [{ action: "navigate", url: "https://example.com", duration: 2 }],
+    });
+    expect(result.customCss).toBeUndefined();
+  });
+});
+
+describe("TransitionSchema edge cases", () => {
+  it("should apply defaults", () => {
+    const result = TransitionSchema.parse({});
+    expect(result.type).toBe("fade");
+    expect(result.duration).toBe(0.5);
+    expect(result.direction).toBeUndefined();
+  });
+
+  it("should accept all valid types", () => {
+    for (const type of ["fade", "slide", "zoom", "none"] as const) {
+      const result = TransitionSchema.parse({ type });
+      expect(result.type).toBe(type);
+    }
+  });
+
+  it("should reject invalid type", () => {
+    const result = TransitionSchema.safeParse({ type: "wipe" });
+    expect(result.success).toBe(false);
+  });
+
+  it("should accept slide with direction", () => {
+    const result = TransitionSchema.parse({
+      type: "slide",
+      direction: "left",
+      duration: 0.3,
+    });
+    expect(result.direction).toBe("left");
+    expect(result.duration).toBe(0.3);
+  });
+
+  it("should accept all valid directions", () => {
+    for (const dir of ["left", "right", "up", "down"] as const) {
+      const result = TransitionSchema.parse({ type: "slide", direction: dir });
+      expect(result.direction).toBe(dir);
+    }
+  });
+
+  it("should reject invalid direction", () => {
+    const result = TransitionSchema.safeParse({ type: "slide", direction: "diagonal" });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject zero duration", () => {
+    const result = TransitionSchema.safeParse({ duration: 0 });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject negative duration", () => {
+    const result = TransitionSchema.safeParse({ duration: -1 });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("Cursor and Frame config schema", () => {
+  it("should accept cursor config on browser scene", () => {
+    const result = BrowserSceneSchema.parse({
+      type: "browser",
+      id: "demo",
+      url: "https://example.com",
+      steps: [{ action: "navigate", url: "https://example.com", duration: 2 }],
+      cursor: { enabled: true, style: "pointer", color: "#ff0000", size: 32 },
+    });
+    expect(result.cursor?.enabled).toBe(true);
+    expect(result.cursor?.color).toBe("#ff0000");
+  });
+
+  it("should accept frame config on browser scene", () => {
+    const result = BrowserSceneSchema.parse({
+      type: "browser",
+      id: "demo",
+      url: "https://example.com",
+      steps: [{ action: "navigate", url: "https://example.com", duration: 2 }],
+      frame: { style: "macos", showUrl: true, darkMode: true },
+    });
+    expect(result.frame?.style).toBe("macos");
+    expect(result.frame?.darkMode).toBe(true);
+  });
+
+  it("should accept transition on title scene", () => {
+    const result = TitleSceneSchema.parse({
+      type: "title",
+      id: "intro",
+      duration: 3,
+      heading: "Hello",
+      transition: { type: "slide", direction: "right", duration: 0.8 },
+    });
+    expect(result.transition?.type).toBe("slide");
+  });
+
+  it("should accept transition on browser scene", () => {
+    const result = BrowserSceneSchema.parse({
+      type: "browser",
+      id: "demo",
+      url: "https://example.com",
+      steps: [{ action: "navigate", url: "https://example.com", duration: 2 }],
+      transition: { type: "zoom" },
+    });
+    expect(result.transition?.type).toBe("zoom");
+  });
+
+  it("should accept transition on output config", () => {
+    const result = OutputConfigSchema.parse({
+      fps: 30,
+      variants: [{ id: "desktop", width: 1920, height: 1080, aspectRatio: "16:9" }],
+      transition: { type: "fade", duration: 0.3 },
+    });
+    expect(result.transition?.type).toBe("fade");
   });
 });
 
