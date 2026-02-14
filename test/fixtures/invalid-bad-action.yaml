@@ -1,0 +1,11 @@
+meta:
+  title: "Bad action type"
+
+scenes:
+  - type: browser
+    id: demo
+    url: "https://example.com"
+    steps:
+      - action: teleport
+        destination: mars
+        duration: 1

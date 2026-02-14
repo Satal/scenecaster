@@ -1,0 +1,8 @@
+meta:
+  title: "Minimal Test"
+
+scenes:
+  - type: title
+    id: intro
+    duration: 3
+    heading: "Hello World"

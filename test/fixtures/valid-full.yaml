@@ -1,0 +1,84 @@
+meta:
+  title: "Full Feature Test"
+
+brand:
+  primaryColor: "#ef4444"
+  backgroundColor: "#1a1a2e"
+  textColor: "#ffffff"
+  fontFamily: "Roboto"
+
+output:
+  fps: 24
+  variants:
+    - id: desktop
+      width: 1920
+      height: 1080
+      aspectRatio: "16:9"
+    - id: mobile
+      width: 1080
+      height: 1920
+      aspectRatio: "9:16"
+      viewport:
+        width: 390
+        height: 693
+
+scenes:
+  - type: title
+    id: intro
+    duration: 4
+    heading: "Getting Started"
+    subheading: "A complete walkthrough"
+    variant: main
+
+  - type: browser
+    id: demo
+    url: "https://example.com"
+    steps:
+      - action: navigate
+        url: "https://example.com"
+        duration: 3
+        caption:
+          text: "Open the homepage"
+          position: bottom
+          style: bar
+          animation: slideUp
+
+      - action: click
+        selector: "#login-btn"
+        highlight: true
+        duration: 2
+        caption:
+          text: "Click the login button"
+          position: bottom
+          style: bubble
+          animation: fadeIn
+
+      - action: fill
+        selector: "#email"
+        value: "user@example.com"
+        typeSpeed: 60
+        duration: 3
+
+      - action: scroll
+        y: 500
+        smooth: true
+        duration: 2
+
+      - action: wait
+        timeout: 1500
+        duration: 2
+        caption:
+          text: "Waiting for the page to load"
+          position: center
+          style: subtitle
+          animation: typewriter
+
+    selectorOverrides:
+      mobile:
+        "#login-btn": ".mobile-login"
+
+  - type: title
+    id: outro
+    duration: 3
+    heading: "All done!"
+    variant: outro

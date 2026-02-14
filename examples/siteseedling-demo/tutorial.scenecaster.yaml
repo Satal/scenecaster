@@ -1,0 +1,99 @@
+meta:
+  title: "How to Add a Team Member"
+
+brand:
+  primaryColor: "#1e40af"
+  backgroundColor: "#0f172a"
+  textColor: "#f8fafc"
+  fontFamily: "Inter"
+
+output:
+  fps: 30
+  variants:
+    - id: desktop
+      width: 1920
+      height: 1080
+      aspectRatio: "16:9"
+    - id: mobile
+      width: 1080
+      height: 1920
+      aspectRatio: "9:16"
+      viewport: { width: 390, height: 693 }
+
+scenes:
+  - type: title
+    id: intro
+    duration: 4
+    heading: "Adding Team Members"
+    subheading: "A step-by-step guide"
+
+  - type: browser
+    id: navigate-to-team
+    url: "https://demo.siteseedling.com/app/team-members"
+    steps:
+      - action: navigate
+        url: "https://demo.siteseedling.com/app/team-members"
+        duration: 3
+        caption:
+          text: "Navigate to Team Members"
+          position: bottom
+          style: bar
+          animation: slideUp
+
+      - action: click
+        selector: "a[href*='team-members/create']"
+        highlight: true
+        duration: 2
+        caption:
+          text: "Click 'New team member' to get started"
+          position: bottom
+          style: bar
+          animation: slideUp
+
+  - type: browser
+    id: fill-details
+    url: "https://demo.siteseedling.com/app/team-members/create"
+    steps:
+      - action: fill
+        selector: "input[name='name']"
+        value: "Jane Smith"
+        typeSpeed: 80
+        duration: 2
+        caption:
+          text: "Enter the team member's name"
+          position: bottom
+          style: bar
+          animation: fadeIn
+
+      - action: fill
+        selector: "input[name='role']"
+        value: "Senior Developer"
+        typeSpeed: 80
+        duration: 2
+        caption:
+          text: "Add their role or job title"
+          position: bottom
+          style: bar
+          animation: fadeIn
+
+      - action: scroll
+        y: 300
+        smooth: true
+        duration: 1
+
+      - action: click
+        selector: "button[type='submit']"
+        highlight: true
+        duration: 3
+        caption:
+          text: "Save the new team member"
+          position: bottom
+          style: bar
+          animation: slideUp
+
+  - type: title
+    id: outro
+    duration: 4
+    heading: "You're all set!"
+    subheading: "Your team member has been added"
+    variant: outro
