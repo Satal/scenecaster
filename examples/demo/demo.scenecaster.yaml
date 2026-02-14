@@ -1,0 +1,63 @@
+meta:
+  title: "SceneCaster Demo"
+
+brand:
+  primaryColor: "#2563eb"
+  backgroundColor: "#0f172a"
+  textColor: "#f8fafc"
+  fontFamily: "Inter"
+
+output:
+  fps: 30
+  variants:
+    - id: desktop
+      width: 1920
+      height: 1080
+      aspectRatio: "16:9"
+
+scenes:
+  - type: title
+    id: intro
+    duration: 4
+    heading: "SceneCaster Demo"
+    subheading: "Automated tutorial videos from YAML"
+
+  - type: browser
+    id: visit-site
+    url: "https://siteseedling.com"
+    steps:
+      - action: navigate
+        url: "https://siteseedling.com"
+        duration: 4
+        caption:
+          text: "Let's visit SiteSeedling.com"
+          position: bottom
+          style: bar
+          animation: slideUp
+
+      - action: scroll
+        y: 600
+        smooth: true
+        duration: 3
+        caption:
+          text: "Scroll down to see the features"
+          position: bottom
+          style: bar
+          animation: fadeIn
+
+      - action: scroll
+        y: 600
+        smooth: true
+        duration: 3
+        caption:
+          text: "Professional websites for service businesses"
+          position: bottom
+          style: subtitle
+          animation: slideUp
+
+  - type: title
+    id: outro
+    duration: 4
+    heading: "That's SceneCaster!"
+    subheading: "YAML in, MP4 out"
+    variant: outro

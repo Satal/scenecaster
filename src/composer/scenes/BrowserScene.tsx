@@ -2,6 +2,7 @@ import React from "react";
 import {
   OffthreadVideo,
   Sequence,
+  staticFile,
   useVideoConfig,
 } from "remotion";
 import { Caption } from "../overlays/Caption.js";
@@ -36,9 +37,9 @@ export const BrowserScene: React.FC<BrowserSceneProps> = ({
         opacity,
       }}
     >
-      {/* Recorded browser video */}
+      {/* Recorded browser video - resolve via staticFile for Remotion's server */}
       <OffthreadVideo
-        src={videoSrc}
+        src={staticFile(videoSrc)}
         style={{
           width,
           height,

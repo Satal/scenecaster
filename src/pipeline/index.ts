@@ -1,5 +1,6 @@
-import { mkdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { mkdirSync, copyFileSync } from "node:fs";
+import { join, resolve, basename } from "node:path";
+import { tmpdir } from "node:os";
 import type { Script, OutputVariant } from "../schema/script.schema.js";
 import type {
   CompositionProps,
@@ -70,17 +71,28 @@ export async function runPipeline(
       { headless, tmpDir, logger }
     );
 
-    // Step 2: Build composition props
+    // Step 2: Copy recordings to a public dir that Remotion can serve
+    const publicDir = join(
+      tmpDir ?? join(tmpdir(), "scenecaster"),
+      "public",
+      variant.id
+    );
+    mkdirSync(publicDir, { recursive: true });
+
+    const publicRecordings = copyRecordingsToPublicDir(recordings, publicDir);
+
+    // Step 3: Build composition props (using staticFile references)
     const compositionProps = buildCompositionProps(
       script,
       variant,
-      recordings
+      publicRecordings
     );
 
-    // Step 3: Render with Remotion
+    // Step 4: Render with Remotion
     await renderVideo({
       outputPath,
       props: compositionProps,
+      publicDir,
       logger,
     });
 
@@ -89,6 +101,30 @@ export async function runPipeline(
   }
 
   return outputFiles;
+}
+
+/**
+ * Copy recorded video files into a public directory and return updated recordings
+ * with filenames suitable for Remotion's staticFile().
+ */
+function copyRecordingsToPublicDir(
+  recordings: Map<string, RecordingResult>,
+  publicDir: string
+): Map<string, RecordingResult> {
+  const updated = new Map<string, RecordingResult>();
+
+  for (const [id, recording] of recordings) {
+    const filename = `${id}.webm`;
+    const destPath = join(publicDir, filename);
+    copyFileSync(recording.videoPath, destPath);
+
+    updated.set(id, {
+      ...recording,
+      videoPath: filename, // Just the filename - Remotion serves it via staticFile()
+    });
+  }
+
+  return updated;
 }
 
 /**

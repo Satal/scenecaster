@@ -1,5 +1,5 @@
 import React from "react";
-import { Composition } from "remotion";
+import { Composition, registerRoot } from "remotion";
 import { TutorialVideo } from "./compositions/TutorialVideo.js";
 import type { CompositionProps } from "../pipeline/types.js";
 
@@ -48,3 +48,5 @@ export const RemotionRoot: React.FC = () => {
     />
   );
 };
+
+registerRoot(RemotionRoot);
