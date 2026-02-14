@@ -311,6 +311,7 @@ export function buildCompositionProps(
       videoPath: recording.videoPath,
       timestamps: recording.timestamps,
       url: scene.url,
+      displayUrl: scene.frame?.displayUrl,
       cursorConfig: scene.cursor,
       frameConfig: scene.frame,
       transition,

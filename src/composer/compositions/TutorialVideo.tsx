@@ -66,6 +66,7 @@ export const TutorialVideo: React.FC<CompositionProps> = ({
                     timestamps={scene.timestamps ?? []}
                     durationFrames={scene.durationFrames}
                     url={scene.url}
+                    displayUrl={scene.displayUrl}
                     cursorConfig={scene.cursorConfig}
                     frameConfig={scene.frameConfig}
                   />

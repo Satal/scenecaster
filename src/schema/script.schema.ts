@@ -121,6 +121,7 @@ export const FrameConfigSchema = z.object({
   style: z.enum(["macos", "minimal", "none"]).default("macos"),
   showUrl: z.boolean().default(true),
   darkMode: z.boolean().default(false),
+  displayUrl: z.string().optional(),
 });
 
 export const BrowserSceneSchema = z.object({

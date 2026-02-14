@@ -96,6 +96,7 @@ program
 
       await launchPreview(script, {
         variantFilter: opts.variant,
+        scriptDir: dirname(resolve(scriptPath)),
         logger,
       });
     } catch (err) {

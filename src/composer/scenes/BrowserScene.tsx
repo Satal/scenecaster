@@ -19,6 +19,7 @@ export interface BrowserSceneProps {
   timestamps: ActionTimestamp[];
   durationFrames: number;
   url?: string;
+  displayUrl?: string;
   cursorConfig?: CursorConfig;
   frameConfig?: FrameConfig;
 }
@@ -28,6 +29,7 @@ export const BrowserScene: React.FC<BrowserSceneProps> = ({
   timestamps,
   durationFrames,
   url,
+  displayUrl,
   cursorConfig,
   frameConfig,
 }) => {
@@ -70,7 +72,7 @@ export const BrowserScene: React.FC<BrowserSceneProps> = ({
       {frameConfig && frameConfig.style !== "none" ? (
         <BrowserFrame
           config={frameConfig}
-          url={url}
+          url={displayUrl ?? url}
           width={width}
           height={height}
         >

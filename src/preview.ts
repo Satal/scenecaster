@@ -1,7 +1,8 @@
-import { writeFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { writeFileSync, mkdirSync, copyFileSync, existsSync } from "node:fs";
+import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import type { Script, OutputVariant } from "./schema/script.schema.js";
 import { buildCompositionProps } from "./pipeline/index.js";
 import {
@@ -11,8 +12,12 @@ import {
 import type { RecordingResult } from "./pipeline/types.js";
 import type { Logger } from "./utils/logger.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 export interface PreviewOptions {
   variantFilter?: string;
+  scriptDir?: string;
   logger?: Logger;
 }
 
@@ -24,7 +29,7 @@ export async function launchPreview(
   script: Script,
   options: PreviewOptions = {}
 ): Promise<void> {
-  const { variantFilter, logger } = options;
+  const { variantFilter, scriptDir, logger } = options;
 
   // Select variant
   const variants = variantFilter
@@ -45,9 +50,26 @@ export async function launchPreview(
 
   // Build composition props
   const tmpDir = join(tmpdir(), "scenecaster", "preview");
-  mkdirSync(tmpDir, { recursive: true });
+  const publicDir = join(tmpDir, "public");
+  mkdirSync(publicDir, { recursive: true });
 
-  const compositionProps = buildCompositionProps(script, variant, recordings);
+  // Resolve and copy brand logo to public dir if it exists
+  let resolvedBrand = script.brand;
+  if (script.brand.logo) {
+    const logoSource = resolve(scriptDir ?? process.cwd(), script.brand.logo);
+    if (existsSync(logoSource)) {
+      const logoFilename = basename(logoSource);
+      const logoDest = join(publicDir, logoFilename);
+      copyFileSync(logoSource, logoDest);
+      resolvedBrand = { ...script.brand, logo: logoFilename };
+      logger?.info(`Copied logo: ${logoFilename}`);
+    } else {
+      logger?.warn(`Logo not found: ${logoSource}`);
+    }
+  }
+
+  const scriptWithResolvedBrand = { ...script, brand: resolvedBrand };
+  const compositionProps = buildCompositionProps(scriptWithResolvedBrand, variant, recordings);
 
   // Write props to temp file for Remotion Studio
   const propsPath = join(tmpDir, "preview-props.json");
@@ -56,13 +78,17 @@ export async function launchPreview(
   logger?.success("Starting Remotion Studio...");
   logger?.info(`Props: ${propsPath}`);
 
-  // Launch Remotion Studio
+  // Find the project root (where src/composer/index.tsx lives)
+  // At runtime __dirname is either dist/ or src/
+  const projectRoot = findProjectRoot(__dirname);
+
+  // Launch Remotion Studio with public directory
   const studio = spawn(
     "npx",
-    ["remotion", "studio", "--props", propsPath],
+    ["remotion", "studio", "--props", propsPath, "--public-dir", publicDir, join(projectRoot, "src", "composer", "index.tsx")],
     {
       stdio: "inherit",
-      cwd: process.cwd(),
+      cwd: projectRoot,
       env: { ...process.env },
     }
   );
@@ -79,6 +105,20 @@ export async function launchPreview(
   await new Promise<void>((resolve) => {
     studio.on("close", () => resolve());
   });
+}
+
+/**
+ * Walk up from a directory to find the project root (contains package.json).
+ */
+function findProjectRoot(startDir: string): string {
+  let dir = startDir;
+  while (dir !== dirname(dir)) {
+    if (existsSync(join(dir, "package.json"))) {
+      return dir;
+    }
+    dir = dirname(dir);
+  }
+  throw new Error("Could not find project root (no package.json found)");
 }
 
 /**

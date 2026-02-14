@@ -62,6 +62,7 @@ export interface SceneRenderData {
   videoPath?: string;
   timestamps?: ActionTimestamp[];
   url?: string;
+  displayUrl?: string;
   cursorConfig?: CursorConfig;
   frameConfig?: FrameConfig;
   transition?: Transition;
