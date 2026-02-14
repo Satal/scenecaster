@@ -128,7 +128,7 @@ async function recordBrowserScenes(
 /**
  * Build the CompositionProps from script + recordings.
  */
-function buildCompositionProps(
+export function buildCompositionProps(
   script: Script,
   variant: OutputVariant,
   recordings: Map<string, RecordingResult>
@@ -171,7 +171,7 @@ function buildCompositionProps(
   };
 }
 
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

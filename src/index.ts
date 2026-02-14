@@ -1,7 +1,8 @@
 // Public API exports
 export { parseScriptFile, parseScriptString, validateScriptFile } from "./schema/parser.js";
 export { ScriptSchema } from "./schema/script.schema.js";
-export { runPipeline, type PipelineOptions } from "./pipeline/index.js";
+export { runPipeline, buildCompositionProps, sanitizeFilename, type PipelineOptions } from "./pipeline/index.js";
+export { generateTemplate } from "./template.js";
 export { recordBrowserScene, type RecorderOptions } from "./recorder/index.js";
 export { renderVideo, type RenderOptions } from "./renderer/render.js";
 
