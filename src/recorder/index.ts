@@ -23,6 +23,8 @@ export interface RecorderOptions {
   tmpDir?: string;
   /** Global CSS to inject into every page */
   globalCss?: string;
+  /** Path to Playwright storage state JSON (cookies, localStorage) for authenticated sessions */
+  storageState?: string;
   logger?: Logger;
 }
 
@@ -39,6 +41,7 @@ export async function recordBrowserScene(
     slowMo = 0,
     tmpDir = join(tmpdir(), "scenecaster"),
     globalCss,
+    storageState,
   } = options;
 
   const recordDir = join(tmpDir, "recordings", scene.id, variant.id);
@@ -56,6 +59,7 @@ export async function recordBrowserScene(
       dir: recordDir,
       size: { width: viewportWidth, height: viewportHeight },
     },
+    ...(storageState ? { storageState } : {}),
   });
 
   const page: Page = await context.newPage();

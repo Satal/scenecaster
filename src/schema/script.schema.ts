@@ -182,11 +182,18 @@ export const OutputConfigSchema = z.object({
   thumbnail: ThumbnailConfigSchema.optional(),
 });
 
+// ── Auth ──
+
+export const AuthConfigSchema = z.object({
+  storageState: z.string().min(1),
+});
+
 // ── Meta ──
 
 export const MetaSchema = z.object({
   title: z.string().min(1),
   globalCss: z.string().optional(),
+  auth: AuthConfigSchema.optional(),
 });
 
 // ── Top-Level Script ──
@@ -232,5 +239,6 @@ export type ViewportConfig = z.infer<typeof ViewportSchema>;
 export type Brand = z.infer<typeof BrandSchema>;
 export type ThumbnailConfig = z.infer<typeof ThumbnailConfigSchema>;
 export type OutputConfig = z.infer<typeof OutputConfigSchema>;
+export type AuthConfig = z.infer<typeof AuthConfigSchema>;
 export type Meta = z.infer<typeof MetaSchema>;
 export type Script = z.infer<typeof ScriptSchema>;

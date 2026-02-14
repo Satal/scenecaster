@@ -145,4 +145,61 @@ program
     console.log(`  Edit the file, then run: scenecaster render ${filename}`);
   });
 
+// ── auth ──
+
+program
+  .command("auth")
+  .description("Log in to a website and save session for authenticated recording")
+  .argument("<url>", "URL to open for login")
+  .option("-s, --save <path>", "Path to save storage state JSON", "./auth.json")
+  .action(async (url: string, opts) => {
+    const logger = createLogger(true);
+
+    try {
+      const { chromium } = await import("playwright");
+
+      logger.info(`Opening browser at ${url}`);
+      logger.info("Log in manually, then close the browser window when done.");
+      console.log("");
+
+      const browser = await chromium.launch({ headless: false });
+      const context = await browser.newContext();
+      const page = await context.newPage();
+
+      await page.goto(url, { waitUntil: "networkidle" });
+
+      // Wait for the user to close the browser or the page
+      await new Promise<void>((res) => {
+        browser.on("disconnected", () => res());
+        page.on("close", () => res());
+      });
+
+      // Save storage state before cleanup
+      const savePath = resolve(opts.save);
+      try {
+        await context.storageState({ path: savePath });
+      } catch {
+        // Context may already be closed if user closed the entire browser
+        logger.error("Could not save session - browser was closed before saving.");
+        logger.info("Tip: close just the tab (not the entire browser) to trigger save.");
+        process.exit(1);
+      }
+
+      try { await browser.close(); } catch { /* already closed */ }
+
+      console.log("");
+      logger.success(`Session saved to ${savePath}`);
+      console.log("");
+      console.log("  Add to your script:");
+      console.log("  meta:");
+      console.log(`    auth:`);
+      console.log(`      storageState: ${opts.save}`);
+    } catch (err) {
+      logger.error(
+        err instanceof Error ? err.message : String(err)
+      );
+      process.exit(1);
+    }
+  });
+
 program.parse();

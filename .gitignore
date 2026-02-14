@@ -7,3 +7,4 @@ dist/
 *.avi
 tmp/
 .env
+auth.json

@@ -110,11 +110,23 @@ export async function runPipeline(
     nameParts.push(variant.id);
     const outputPath = join(absoluteOutputDir, `${nameParts.join("-")}.mp4`);
 
+    // Resolve auth storage state path relative to script directory
+    const storageState = script.meta.auth?.storageState
+      ? resolve(scriptDir ?? process.cwd(), script.meta.auth.storageState)
+      : undefined;
+
+    if (storageState && !existsSync(storageState)) {
+      throw new Error(
+        `Auth storage state file not found: ${storageState}\n` +
+        `Run "scenecaster auth <url> --save <path>" to create one.`
+      );
+    }
+
     // Step 1: Record all browser scenes
     const recordings = await recordBrowserScenes(
       filteredScript,
       variant,
-      { headless, tmpDir, noCache, globalCss: script.meta.globalCss, logger }
+      { headless, tmpDir, noCache, globalCss: script.meta.globalCss, storageState, logger }
     );
 
     // Step 2: Copy recordings to a public dir that Remotion can serve
@@ -211,7 +223,7 @@ function copyRecordingsToPublicDir(
 async function recordBrowserScenes(
   script: Script,
   variant: OutputVariant,
-  options: { headless?: boolean; tmpDir?: string; noCache?: boolean; globalCss?: string; logger?: Logger }
+  options: { headless?: boolean; tmpDir?: string; noCache?: boolean; globalCss?: string; storageState?: string; logger?: Logger }
 ): Promise<Map<string, RecordingResult>> {
   const recordings = new Map<string, RecordingResult>();
 
@@ -239,6 +251,7 @@ async function recordBrowserScenes(
       headless: options.headless,
       tmpDir: options.tmpDir,
       globalCss: options.globalCss,
+      storageState: options.storageState,
       logger: options.logger,
     });
 

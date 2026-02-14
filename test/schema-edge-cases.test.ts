@@ -11,6 +11,7 @@ import {
   WaitForSchema,
   MetaSchema,
   TransitionSchema,
+  AuthConfigSchema,
 } from "../src/schema/script.schema.js";
 
 describe("CaptionSchema edge cases", () => {
@@ -435,6 +436,70 @@ describe("Cursor and Frame config schema", () => {
       transition: { type: "fade", duration: 0.3 },
     });
     expect(result.transition?.type).toBe("fade");
+  });
+});
+
+describe("AuthConfigSchema", () => {
+  it("should accept valid storageState path", () => {
+    const result = AuthConfigSchema.parse({ storageState: "./auth.json" });
+    expect(result.storageState).toBe("./auth.json");
+  });
+
+  it("should reject empty storageState", () => {
+    const result = AuthConfigSchema.safeParse({ storageState: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject missing storageState", () => {
+    const result = AuthConfigSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("MetaSchema auth integration", () => {
+  it("should accept meta with auth config", () => {
+    const result = MetaSchema.parse({
+      title: "Test",
+      auth: { storageState: "./auth.json" },
+    });
+    expect(result.auth?.storageState).toBe("./auth.json");
+  });
+
+  it("should allow meta without auth", () => {
+    const result = MetaSchema.parse({ title: "Test" });
+    expect(result.auth).toBeUndefined();
+  });
+
+  it("should accept meta with both auth and globalCss", () => {
+    const result = MetaSchema.parse({
+      title: "Test",
+      globalCss: "body { margin: 0; }",
+      auth: { storageState: "/path/to/state.json" },
+    });
+    expect(result.auth?.storageState).toBe("/path/to/state.json");
+    expect(result.globalCss).toBe("body { margin: 0; }");
+  });
+});
+
+describe("ScriptSchema auth in full script", () => {
+  it("should parse a complete script with auth config", () => {
+    const result = ScriptSchema.parse({
+      meta: {
+        title: "Authenticated Tutorial",
+        auth: { storageState: "./session.json" },
+      },
+      scenes: [
+        {
+          type: "browser",
+          id: "dashboard",
+          url: "https://app.example.com/dashboard",
+          steps: [
+            { action: "navigate", url: "https://app.example.com/dashboard", duration: 3 },
+          ],
+        },
+      ],
+    });
+    expect(result.meta.auth?.storageState).toBe("./session.json");
   });
 });
 
